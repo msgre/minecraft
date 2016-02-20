@@ -1,0 +1,5 @@
+---
+minecraft_user: root
+minecraft_port: 25565
+minecraft_data_dir: /home/{{ minecraft_user }}/minecraft
+minecraft_data_tar: /tmp/minecraft_data.tgz

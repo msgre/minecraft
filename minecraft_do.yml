@@ -1,0 +1,90 @@
+---
+- name: Bootstrap Minecraft on Digital Ocean server
+  hosts: minecraft
+  remote_user: root
+  vars_files:
+    - do/vars
+
+  tasks:
+    # --- Basic
+    - name: Update apt cache
+      apt: update_cache=yes
+
+    - name: Install Vim
+      apt: name=vim
+
+    # --- Install Docker
+    - name: Add docker repository GPG key
+      apt_key: >
+        keyserver=hkp://p80.pool.sks-keyservers.net:80
+        id=58118E89F3A912897C070ADBF76221572C52609D
+      sudo: yes
+
+    - name: Add Docker repository
+      apt_repository: >
+        repo='deb https://apt.dockerproject.org/repo ubuntu-{{ ansible_distribution_release}} main'
+        state=present
+        validate_certs=yes
+        update_cache=yes
+      sudo: yes
+
+    - name: Install docker
+      apt: name=docker-engine state=present force=yes
+      sudo: yes
+
+    - name: Add user to group
+      user: name={{ minecraft_user }} append=yes groups=docker
+      sudo: yes
+
+    # --- Minecraft
+    - name: Create directory for minecraft data
+      file:
+        path: "{{ minecraft_data_dir }}"
+        state: directory
+        owner: "{{ minecraft_user }}"
+        group: "{{ minecraft_user }}"
+
+    - name: Pull minecraft docker image
+      command: docker pull itzg/minecraft-server
+
+    # https://hub.docker.com/r/itzg/minecraft-server/
+    - name: Create helper start scripts
+      template:
+        src: do/start_mc.sh.j2
+        dest: /home/{{ minecraft_user }}/start_mc.sh
+        mode: 0755
+        owner: "{{ minecraft_user }}"
+        group: "{{ minecraft_user }}"
+
+    - name: Create helper stop scripts
+      template:
+        src: do/stop_mc.sh.j2
+        dest: /home/{{ minecraft_user }}/stop_mc.sh
+        mode: 0755
+        owner: "{{ minecraft_user }}"
+        group: "{{ minecraft_user }}"
+
+    # --- Copy data dir
+    - name: Check data TAR
+      local_action: stat path=do/data/{{ minecraft_data_tar|basename }}
+      register: stat_minecraft_data_tar
+      tags:
+        - data
+
+    - name: Push Data TAR to remote machine and unarchive it
+      unarchive:
+        src: do/data/{{ minecraft_data_tar|basename }}
+        dest: "{{ minecraft_data_dir|dirname }}"
+      when:
+        stat_minecraft_data_tar.stat.exists
+      tags:
+        - data
+
+    # --- Start
+    - name: Start Minecraft server
+      command: ./start_mc.sh
+      args:
+        chdir: /home/{{ minecraft_user }}
+
+    # --- Final message
+    - debug: msg="Connect your Minecraft client to {{ ansible_eth0.ipv4.address }}:{{ minecraft_port }} address."

@@ -1,0 +1,24 @@
+---
+- name: Pull Minecraft data dir from Digital Ocean and stop it
+  hosts: minecraft
+  remote_user: root
+  gather_facts: false
+  vars_files:
+    - do/vars
+
+  tasks:
+    - name: Make TAR on remote machine
+      command: tar czvf {{ minecraft_data_tar  }} {{ minecraft_data_dir|basename }}
+      args:
+        chdir: "{{ minecraft_data_dir|dirname }}"
+
+    - name: Pull TAR to local machine
+      fetch:
+        src: "{{ minecraft_data_tar }}"
+        dest: do/data/{{ minecraft_data_tar|basename }}
+        flat: yes
+
+    - name: Stop Minecraft server
+      command: ./stop_mc.sh
+      args:
+        chdir: /home/{{ minecraft_user }}

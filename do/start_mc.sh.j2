@@ -1,0 +1,4 @@
+#!/bin/bash
+docker kill mc
+docker rm -f mc
+docker run --name mc -dp {{ minecraft_port }}:{{ minecraft_port }} -e EULA=true -e MODE=creative -v {{ minecraft_data_dir }}:/data itzg/minecraft-server
